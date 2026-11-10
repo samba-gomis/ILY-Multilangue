@@ -3,6 +3,7 @@ import { DISPLAY_FONT, FONT_STACK, waitForFonts } from '../animation/fonts'
 import { layoutWords, mulberry32, type Layout, type Measure } from '../animation/layout'
 import { createParticles, floatOffset, pulseScale, updateParticles, type TextParticle } from '../animation/particles'
 import { getPhase, type Phase } from '../animation/timeline'
+import { stageBox } from '../animation/stage'
 import { allWords } from '../animation/words'
 
 type Props = {
@@ -23,6 +24,7 @@ const PHASE_ORDER: Phase[] = ['appear', 'converge', 'final']
 
 export function HeartCanvas({ phrase, songBpm, name, message, reducedMotion, onPhaseChange }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const messageRef = useRef<HTMLParagraphElement>(null)
   const [showMessage, setShowMessage] = useState(false)
   const phaseCb = useRef(onPhaseChange)
   useEffect(() => {
@@ -59,7 +61,9 @@ export function HeartCanvas({ phrase, songBpm, name, message, reducedMotion, onP
       canvas.width = Math.round(width * dpr)
       canvas.height = Math.round(height * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      layout = layoutWords(words, { width, height }, measure, LAYOUT_SEED)
+      // Le message (même encore invisible) occupe déjà sa place : on la mesure pour que le cœur ne le chevauche pas.
+      const msgTop = messageRef.current?.getBoundingClientRect().top ?? height
+      layout = layoutWords(words, stageBox({ width, height }, height - msgTop + 16), measure, LAYOUT_SEED)
       const fresh = createParticles(layout.placements, { width, height }, mulberry32(42))
       // Au redimensionnement, les mots existants repartent de leur position actuelle.
       particles = fresh.map((p, i) => {
@@ -165,7 +169,7 @@ export function HeartCanvas({ phrase, songBpm, name, message, reducedMotion, onP
   return (
     <>
       <canvas ref={canvasRef} aria-label={`${name} — « Je t'aime » dans toutes les langues, en forme de cœur`} role="img" />
-      <p className={showMessage ? 'message visible' : 'message'}>{message}</p>
+      <p ref={messageRef} className={showMessage ? 'message visible' : 'message'}>{message}</p>
     </>
   )
 }
