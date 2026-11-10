@@ -6,11 +6,11 @@ import { waitForFonts } from './animation/fonts'
 import { Controls } from './components/Controls'
 import { allWords } from './animation/words'
 import { HeartCanvas } from './components/HeartCanvas'
-import { LoadingScreen } from './components/LoadingScreen'
+import { LanguagesScreen } from './components/LanguagesScreen'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { config } from './config'
 
-type Screen = 'welcome' | 'loading' | 'heart'
+type Screen = 'welcome' | 'languages' | 'heart'
 
 /** La phrase mise en valeur au-dessus du prénom. */
 const PHRASE = "Je t'aime ❤️"
@@ -38,7 +38,7 @@ export default function App() {
   const start = () => {
     if (started.current) return // double tap : un seul lancement
     started.current = true
-    // Les polices se chargent pendant l'écran d'attente.
+    // Les polices se chargent pendant l'écran des langues.
     void waitForFonts(allWords(PHRASE).map((w) => w.text).join('') + config.name)
 
     // Créé dans le gestionnaire de clic : c'est ce qui autorise le son (iOS compris).
@@ -57,11 +57,12 @@ export default function App() {
     audio.current.music = createMusic(config.songUrl, config.songStartSec)
     audio.current.music.unlock() // dans le geste : sinon iOS refusera la lecture 6 s plus tard
     audio.current.music.setMuted(muted)
-    setScreen('loading')
+    setScreen('languages')
   }
 
-  // Arrivée sur le cœur : la chanson démarre tout de suite, le battement s'efface.
+  // Clic vers le cœur : la chanson démarre dans le geste, le battement s'efface.
   const showHeart = () => {
+    if (screen !== 'languages') return // double tap : une seule chanson
     setScreen('heart')
     const { heartbeat, music } = audio.current
     if (!music) return
@@ -95,7 +96,7 @@ export default function App() {
   return (
     <div className="app">
       {screen === 'welcome' && <WelcomeScreen onStart={start} />}
-      {screen === 'loading' && <LoadingScreen onDone={showHeart} />}
+      {screen === 'languages' && <LanguagesScreen onNext={showHeart} />}
       {screen === 'heart' && (
         <div className="screen heart" data-testid="heart-stage" key={runId}>
           <HeartCanvas

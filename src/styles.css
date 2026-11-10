@@ -109,6 +109,7 @@ body::after {
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 8px 28px rgba(255, 107, 154, 0.35);
+  text-wrap: balance;
   transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
 }
 .cta:hover:not(:disabled) {

@@ -41,14 +41,15 @@ afterEach(() => {
 })
 
 const submit = () => screen.getByRole('button', { name: 'Je t’aime ❤️' })
+const toHeart = () => fireEvent.click(screen.getByRole('button', { name: /^Dis-le-moi dans plusieurs langues…\s💕$/ }))
 
-test("clic → chargement → cœur après 2500 ms", () => {
+test("« Je t'aime » → écran des langues → clic → cœur", () => {
   render(<App />)
   fireEvent.click(submit())
-  expect(screen.getByText('Dis-le-moi dans plusieurs langues… 💕')).toBeInTheDocument()
   expect(mocks.heartbeat.start).toHaveBeenCalledWith(60)
-  act(() => vi.advanceTimersByTime(2500))
-  expect(screen.queryByText('Dis-le-moi dans plusieurs langues… 💕')).not.toBeInTheDocument()
+  act(() => vi.advanceTimersByTime(30000))
+  expect(screen.queryByTestId('heart-stage')).not.toBeInTheDocument()
+  toHeart()
   expect(screen.getByTestId('heart-stage')).toBeInTheDocument()
 })
 
@@ -64,7 +65,7 @@ test("double submit ne lance qu'un chargement", () => {
 test("Rejouer revient à l'accueil et coupe l'audio", () => {
   render(<App />)
   fireEvent.click(submit())
-  act(() => vi.advanceTimersByTime(2500))
+  toHeart()
   fireEvent.click(screen.getByRole('button', { name: 'Rejouer' }))
   expect(screen.getByRole('heading', { name: 'Dis-moi que tu m’aimes 🥺 !' })).toBeInTheDocument()
   expect(mocks.heartbeat.stop).toHaveBeenCalled()
@@ -84,17 +85,16 @@ test('sans Web Audio, l’expérience continue sans erreur', () => {
   vi.stubGlobal('AudioContext', undefined)
   render(<App />)
   fireEvent.click(submit())
-  act(() => vi.advanceTimersByTime(2500))
+  toHeart()
   expect(screen.getByTestId('heart-stage')).toBeInTheDocument()
   expect(mocks.createHeartbeat).not.toHaveBeenCalled()
 })
 
-test("la chanson démarre dès l'arrivée sur le cœur, puis le battement s'efface", async () => {
+test("la chanson démarre au clic vers le cœur, puis le battement s'efface", async () => {
   render(<App />)
   fireEvent.click(submit())
-  act(() => vi.advanceTimersByTime(2499))
   expect(mocks.music.play).not.toHaveBeenCalled()
-  act(() => vi.advanceTimersByTime(1))
+  toHeart()
   expect(mocks.music.play).toHaveBeenCalledTimes(1)
   expect(mocks.music.play).toHaveBeenCalledWith(2000)
   await act(async () => {})
@@ -104,7 +104,7 @@ test("la chanson démarre dès l'arrivée sur le cœur, puis le battement s'effa
 test('les phases du cœur ne relancent pas la chanson', () => {
   render(<App />)
   fireEvent.click(submit())
-  act(() => vi.advanceTimersByTime(2500))
+  toHeart()
   fireEvent.click(screen.getByText('phase-converge'))
   fireEvent.click(screen.getByText('phase-final'))
   expect(mocks.music.play).toHaveBeenCalledTimes(1)
@@ -114,7 +114,7 @@ test('si la chanson échoue, le battement continue et accélère', async () => {
   mocks.music.failed = true
   render(<App />)
   fireEvent.click(submit())
-  act(() => vi.advanceTimersByTime(2500))
+  toHeart()
   await act(async () => {})
   fireEvent.click(screen.getByText('phase-converge'))
   expect(mocks.heartbeat.fadeOut).not.toHaveBeenCalled()
@@ -125,7 +125,7 @@ test('si la chanson échoue, le battement continue et accélère', async () => {
 test('le cœur affiche toujours « Je t’aime ❤️ » comme phrase mise en valeur', () => {
   render(<App />)
   fireEvent.click(submit())
-  act(() => vi.advanceTimersByTime(2500))
+  toHeart()
   expect(screen.getByTestId('heart-phrase')).toHaveTextContent("Je t'aime ❤️")
 })
 
@@ -133,4 +133,13 @@ test('la chanson est amorcée dans le geste du clic (iOS)', () => {
   render(<App />)
   fireEvent.click(submit())
   expect(mocks.music.unlock).toHaveBeenCalledTimes(1)
+})
+
+test("double tap sur « Dis-le-moi… » ne lance qu'une chanson", () => {
+  render(<App />)
+  fireEvent.click(submit())
+  const button = screen.getByRole('button', { name: /^Dis-le-moi dans plusieurs langues…\s💕$/ })
+  fireEvent.click(button)
+  fireEvent.click(button)
+  expect(mocks.music.play).toHaveBeenCalledTimes(1)
 })
