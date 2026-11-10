@@ -7,7 +7,7 @@ afterEach(() => vi.useRealTimers())
 test('affiche le message et appelle onDone une fois à 2500 ms', () => {
   const onDone = vi.fn()
   render(<LoadingScreen onDone={onDone} />)
-  expect(screen.getByText('Je cherche toutes les façons de te le dire… 💕')).toBeInTheDocument()
+  expect(screen.getByText('Dis-le-moi dans plusieurs langues… 💕')).toBeInTheDocument()
   act(() => vi.advanceTimersByTime(2499))
   expect(onDone).not.toHaveBeenCalled()
   act(() => vi.advanceTimersByTime(1))

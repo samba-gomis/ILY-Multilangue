@@ -14,8 +14,9 @@ const mocks = vi.hoisted(() => {
 vi.mock('./audio/heartbeat', () => ({ createHeartbeat: mocks.createHeartbeat }))
 vi.mock('./audio/music', () => ({ createMusic: mocks.createMusic }))
 vi.mock('./components/HeartCanvas', () => ({
-  HeartCanvas: ({ onPhaseChange }: { onPhaseChange: (p: string) => void }) => (
+  HeartCanvas: ({ onPhaseChange, phrase }: { onPhaseChange: (p: string) => void; phrase: string }) => (
     <div>
+      <span data-testid="heart-phrase">{phrase}</span>
       <button onClick={() => onPhaseChange('converge')}>phase-converge</button>
       <button onClick={() => onPhaseChange('final')}>phase-final</button>
     </div>
@@ -39,15 +40,15 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const submit = () => screen.getByRole('button', { name: 'Dis-le dans toutes les langues →' })
+const submit = () => screen.getByRole('button', { name: 'Je t’aime ❤️' })
 
 test("clic → chargement → cœur après 2500 ms", () => {
   render(<App />)
   fireEvent.click(submit())
-  expect(screen.getByText('Je cherche toutes les façons de te le dire… 💕')).toBeInTheDocument()
+  expect(screen.getByText('Dis-le-moi dans plusieurs langues… 💕')).toBeInTheDocument()
   expect(mocks.heartbeat.start).toHaveBeenCalledWith(60)
   act(() => vi.advanceTimersByTime(2500))
-  expect(screen.queryByText('Je cherche toutes les façons de te le dire… 💕')).not.toBeInTheDocument()
+  expect(screen.queryByText('Dis-le-moi dans plusieurs langues… 💕')).not.toBeInTheDocument()
   expect(screen.getByTestId('heart-stage')).toBeInTheDocument()
 })
 
@@ -88,27 +89,44 @@ test('sans Web Audio, l’expérience continue sans erreur', () => {
   expect(mocks.createHeartbeat).not.toHaveBeenCalled()
 })
 
-test('convergence accélère le battement, le cœur final lance la chanson puis éteint le battement', async () => {
+test("la chanson démarre dès l'arrivée sur le cœur, puis le battement s'efface", async () => {
   render(<App />)
   fireEvent.click(submit())
-  act(() => vi.advanceTimersByTime(2500))
-  fireEvent.click(screen.getByText('phase-converge'))
-  expect(mocks.heartbeat.setBpm).toHaveBeenCalledWith(80)
-  fireEvent.click(screen.getByText('phase-final'))
+  act(() => vi.advanceTimersByTime(2499))
+  expect(mocks.music.play).not.toHaveBeenCalled()
+  act(() => vi.advanceTimersByTime(1))
+  expect(mocks.music.play).toHaveBeenCalledTimes(1)
   expect(mocks.music.play).toHaveBeenCalledWith(2000)
   await act(async () => {})
   expect(mocks.heartbeat.fadeOut).toHaveBeenCalledWith(2000)
 })
 
-test('si la chanson échoue, le battement continue', async () => {
+test('les phases du cœur ne relancent pas la chanson', () => {
+  render(<App />)
+  fireEvent.click(submit())
+  act(() => vi.advanceTimersByTime(2500))
+  fireEvent.click(screen.getByText('phase-converge'))
+  fireEvent.click(screen.getByText('phase-final'))
+  expect(mocks.music.play).toHaveBeenCalledTimes(1)
+})
+
+test('si la chanson échoue, le battement continue et accélère', async () => {
   mocks.music.failed = true
   render(<App />)
   fireEvent.click(submit())
   act(() => vi.advanceTimersByTime(2500))
-  fireEvent.click(screen.getByText('phase-final'))
   await act(async () => {})
+  fireEvent.click(screen.getByText('phase-converge'))
   expect(mocks.heartbeat.fadeOut).not.toHaveBeenCalled()
+  expect(mocks.heartbeat.setBpm).toHaveBeenCalledWith(80)
   mocks.music.failed = false
+})
+
+test('le cœur affiche toujours « Je t’aime ❤️ » comme phrase mise en valeur', () => {
+  render(<App />)
+  fireEvent.click(submit())
+  act(() => vi.advanceTimersByTime(2500))
+  expect(screen.getByTestId('heart-phrase')).toHaveTextContent("Je t'aime ❤️")
 })
 
 test('la chanson est amorcée dans le geste du clic (iOS)', () => {

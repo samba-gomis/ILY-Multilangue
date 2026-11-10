@@ -97,24 +97,6 @@ body::after {
   text-shadow: 0 0 24px rgba(255, 107, 154, 0.45);
 }
 
-.phrase-input {
-  width: 100%;
-  padding: 14px 18px;
-  border: 1px solid rgba(253, 238, 244, 0.25);
-  border-radius: 999px;
-  background: rgba(253, 238, 244, 0.08);
-  color: var(--cream);
-  font: inherit;
-  font-size: 1.15rem;
-  text-align: center;
-  outline: none;
-  transition: border-color 0.2s, background 0.2s;
-}
-.phrase-input:focus {
-  border-color: var(--rose);
-  background: rgba(253, 238, 244, 0.12);
-}
-
 .cta {
   min-height: 52px;
   padding: 14px 26px;

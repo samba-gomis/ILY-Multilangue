@@ -11,6 +11,9 @@ import { WelcomeScreen } from './components/WelcomeScreen'
 import { config } from './config'
 
 type Screen = 'welcome' | 'loading' | 'heart'
+
+/** La phrase mise en valeur au-dessus du prénom. */
+const PHRASE = "Je t'aime ❤️"
 type AudioState = { ctx?: AudioContext; heartbeat?: Heartbeat; music?: Music }
 
 function prefersReducedMotion(): boolean {
@@ -27,18 +30,16 @@ function getAudioContextCtor(): (new () => AudioContext) | undefined {
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome')
-  const [phrase, setPhrase] = useState('')
   const [muted, setMuted] = useState(false)
   const [runId, setRunId] = useState(0)
   const audio = useRef<AudioState>({})
   const started = useRef(false)
 
-  const start = (text: string) => {
+  const start = () => {
     if (started.current) return // double tap : un seul lancement
     started.current = true
-    setPhrase(text)
     // Les polices se chargent pendant l'écran d'attente.
-    void waitForFonts(allWords(text).map((w) => w.text).join('') + config.name)
+    void waitForFonts(allWords(PHRASE).map((w) => w.text).join('') + config.name)
 
     // Créé dans le gestionnaire de clic : c'est ce qui autorise le son (iOS compris).
     const Ctor = getAudioContextCtor()
@@ -59,14 +60,19 @@ export default function App() {
     setScreen('loading')
   }
 
-  const onPhaseChange = useCallback((phase: Phase) => {
+  // Arrivée sur le cœur : la chanson démarre tout de suite, le battement s'efface.
+  const showHeart = () => {
+    setScreen('heart')
     const { heartbeat, music } = audio.current
-    if (phase === 'converge') heartbeat?.setBpm(80)
-    if (phase === 'final' && music) {
-      void music.play(2000).then(() => {
-        if (!music.failed) heartbeat?.fadeOut(2000)
-      })
-    }
+    if (!music) return
+    void music.play(2000).then(() => {
+      if (!music.failed) heartbeat?.fadeOut(2000)
+    })
+  }
+
+  // Sans chanson (fichier absent, lecture refusée), le battement accompagne la formation du cœur.
+  const onPhaseChange = useCallback((phase: Phase) => {
+    if (phase === 'converge' && audio.current.music?.failed !== false) audio.current.heartbeat?.setBpm(80)
   }, [])
 
   const toggleMute = () => {
@@ -88,12 +94,12 @@ export default function App() {
 
   return (
     <div className="app">
-      {screen === 'welcome' && <WelcomeScreen onSubmit={start} />}
-      {screen === 'loading' && <LoadingScreen onDone={() => setScreen('heart')} />}
+      {screen === 'welcome' && <WelcomeScreen onStart={start} />}
+      {screen === 'loading' && <LoadingScreen onDone={showHeart} />}
       {screen === 'heart' && (
         <div className="screen heart" data-testid="heart-stage" key={runId}>
           <HeartCanvas
-            phrase={phrase}
+            phrase={PHRASE}
             songBpm={config.songBpm}
             name={config.name}
             message={config.message}

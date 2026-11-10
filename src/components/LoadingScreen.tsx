@@ -16,7 +16,7 @@ export function LoadingScreen({ onDone, durationMs = 2500 }: { onDone: () => voi
       <div className="loading-heart" aria-hidden="true">
         ❤
       </div>
-      <p className="loading-text">Je cherche toutes les façons de te le dire… 💕</p>
+      <p className="loading-text">Dis-le-moi dans plusieurs langues… 💕</p>
     </main>
   )
 }
