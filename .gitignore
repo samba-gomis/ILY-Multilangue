@@ -25,7 +25,9 @@ dist-ssr
 
 # Contenu personnel (jamais dans le repo public)
 src/config/config.local.ts
-public/music/*.mp3
+*.mp3
+*.m4a
+*.wav
 
 # Espace de travail des plans
 .superpowers/

@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react'
 
 export function LoadingScreen({ onDone, durationMs = 2500 }: { onDone: () => void; durationMs?: number }) {
   const done = useRef(onDone)
-  done.current = onDone
+  useEffect(() => {
+    done.current = onDone
+  }, [onDone])
 
   useEffect(() => {
     const id = setTimeout(() => done.current(), durationMs)

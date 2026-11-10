@@ -13,6 +13,14 @@ const mocks = vi.hoisted(() => {
 })
 vi.mock('./audio/heartbeat', () => ({ createHeartbeat: mocks.createHeartbeat }))
 vi.mock('./audio/music', () => ({ createMusic: mocks.createMusic }))
+vi.mock('./components/HeartCanvas', () => ({
+  HeartCanvas: ({ onPhaseChange }: { onPhaseChange: (p: string) => void }) => (
+    <div>
+      <button onClick={() => onPhaseChange('converge')}>phase-converge</button>
+      <button onClick={() => onPhaseChange('final')}>phase-final</button>
+    </div>
+  ),
+}))
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -78,4 +86,27 @@ test('sans Web Audio, l’expérience continue sans erreur', () => {
   act(() => vi.advanceTimersByTime(2500))
   expect(screen.getByTestId('heart-stage')).toBeInTheDocument()
   expect(mocks.createHeartbeat).not.toHaveBeenCalled()
+})
+
+test('convergence accélère le battement, le cœur final lance la chanson puis éteint le battement', async () => {
+  render(<App />)
+  fireEvent.click(submit())
+  act(() => vi.advanceTimersByTime(2500))
+  fireEvent.click(screen.getByText('phase-converge'))
+  expect(mocks.heartbeat.setBpm).toHaveBeenCalledWith(80)
+  fireEvent.click(screen.getByText('phase-final'))
+  expect(mocks.music.play).toHaveBeenCalledWith(2000)
+  await act(async () => {})
+  expect(mocks.heartbeat.fadeOut).toHaveBeenCalledWith(2000)
+})
+
+test('si la chanson échoue, le battement continue', async () => {
+  mocks.music.failed = true
+  render(<App />)
+  fireEvent.click(submit())
+  act(() => vi.advanceTimersByTime(2500))
+  fireEvent.click(screen.getByText('phase-final'))
+  await act(async () => {})
+  expect(mocks.heartbeat.fadeOut).not.toHaveBeenCalled()
+  mocks.music.failed = false
 })

@@ -21,6 +21,20 @@ test('fitToBox respecte les marges et remplit la boîte', () => {
   expect(Math.max(w, h)).toBeGreaterThanOrEqual(359)
 })
 
+test('fitToBox peut étirer le cœur en hauteur sur un écran en portrait, sans dépasser le facteur donné', () => {
+  const raw = heartOutline(200)
+  const ratio = (pts: { x: number; y: number }[]) => {
+    const xs = pts.map((p) => p.x)
+    const ys = pts.map((p) => p.y)
+    return (Math.max(...ys) - Math.min(...ys)) / (Math.max(...xs) - Math.min(...xs))
+  }
+  const portrait = fitToBox(raw, { width: 390, height: 844 }, 20, 1.25)
+  expect(ratio(portrait)).toBeCloseTo(ratio(raw) * 1.25, 6)
+  for (const p of portrait) expect(p.y).toBeLessThanOrEqual(824 + 1e-9)
+  // en paysage, pas d'étirement possible : forme d'origine
+  expect(ratio(fitToBox(raw, { width: 1440, height: 900 }, 20, 1.25))).toBeCloseTo(ratio(raw), 6)
+})
+
 test('isInsideHeart distingue intérieur et extérieur', () => {
   const pts = fitToBox(heartOutline(200), { width: 400, height: 400 }, 20)
   const ys = pts.map((p) => p.y)

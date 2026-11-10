@@ -28,6 +28,7 @@ const INSET = 0.15 // marge intérieure par rapport au bord du cœur
 const MIN_SCALE = 0.7 // réduction maximale d'un mot
 const LOOKAHEAD = 8 // nombre de mots essayés avant de fermer un intervalle
 const HIGHLIGHT_SCALE = 1.6 // la phrase saisie est plus grande
+const PORTRAIT_STRETCH = 1.25 // le cœur peut s'allonger un peu sur téléphone
 
 export function mulberry32(seed: number): () => number {
   let a = seed >>> 0
@@ -149,7 +150,7 @@ function attempt(words: WordInput[], outline: Point[], zone: Rect, top: number, 
 }
 
 export function layoutWords(words: WordInput[], box: Box, measure: Measure, seed = 1): Layout {
-  const outline = fitToBox(heartOutline(240), box, Math.min(box.width, box.height) * 0.06)
+  const outline = fitToBox(heartOutline(240), box, Math.min(box.width, box.height) * 0.06, PORTRAIT_STRETCH)
   const xs = outline.map((p) => p.x)
   const ys = outline.map((p) => p.y)
   const minX = Math.min(...xs)

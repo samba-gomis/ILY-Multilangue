@@ -16,8 +16,11 @@ export function heartOutline(steps: number): Point[] {
   return pts
 }
 
-/** Met le contour à l'échelle (uniforme) et le centre dans la boîte, avec une marge. */
-export function fitToBox(points: Point[], box: Box, margin: number): Point[] {
+/**
+ * Met le contour à l'échelle et le centre dans la boîte, avec une marge.
+ * `maxStretch` > 1 autorise un étirement vertical (écrans en portrait) jusqu'à ce facteur.
+ */
+export function fitToBox(points: Point[], box: Box, margin: number, maxStretch = 1): Point[] {
   const xs = points.map((p) => p.x)
   const ys = points.map((p) => p.y)
   const minX = Math.min(...xs)
@@ -25,9 +28,10 @@ export function fitToBox(points: Point[], box: Box, margin: number): Point[] {
   const w = Math.max(...xs) - minX
   const h = Math.max(...ys) - minY
   const scale = Math.min((box.width - 2 * margin) / w, (box.height - 2 * margin) / h)
+  const scaleY = Math.min(scale * maxStretch, (box.height - 2 * margin) / h)
   const offX = (box.width - w * scale) / 2
-  const offY = (box.height - h * scale) / 2
-  return points.map((p) => ({ x: offX + (p.x - minX) * scale, y: offY + (p.y - minY) * scale }))
+  const offY = (box.height - h * scaleY) / 2
+  return points.map((p) => ({ x: offX + (p.x - minX) * scale, y: offY + (p.y - minY) * scaleY }))
 }
 
 /** Test point-dans-polygone (lancer de rayon horizontal). */

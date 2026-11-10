@@ -2,13 +2,20 @@ import { useCallback, useRef, useState } from 'react'
 import type { Phase } from './animation/timeline'
 import { createHeartbeat, type Heartbeat } from './audio/heartbeat'
 import { createMusic, type Music } from './audio/music'
+import { waitForFonts } from './animation/fonts'
 import { Controls } from './components/Controls'
+import { allWords } from './animation/words'
+import { HeartCanvas } from './components/HeartCanvas'
 import { LoadingScreen } from './components/LoadingScreen'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { config } from './config'
 
 type Screen = 'welcome' | 'loading' | 'heart'
 type AudioState = { ctx?: AudioContext; heartbeat?: Heartbeat; music?: Music }
+
+function prefersReducedMotion(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
 
 function getAudioContextCtor(): (new () => AudioContext) | undefined {
   const w = globalThis as unknown as {
@@ -30,6 +37,8 @@ export default function App() {
     if (started.current) return // double tap : un seul lancement
     started.current = true
     setPhrase(text)
+    // Les polices se chargent pendant l'écran d'attente.
+    void waitForFonts(allWords(text).map((w) => w.text).join('') + config.name)
 
     // Créé dans le gestionnaire de clic : c'est ce qui autorise le son (iOS compris).
     const Ctor = getAudioContextCtor()
@@ -81,9 +90,15 @@ export default function App() {
       {screen === 'welcome' && <WelcomeScreen onSubmit={start} />}
       {screen === 'loading' && <LoadingScreen onDone={() => setScreen('heart')} />}
       {screen === 'heart' && (
-        <div className="screen heart" data-testid="heart-stage" key={runId} data-phrase={phrase}>
-          {/* HeartCanvas (Task 7) */}
-          <span hidden>{String(onPhaseChange.length)}</span>
+        <div className="screen heart" data-testid="heart-stage" key={runId}>
+          <HeartCanvas
+            phrase={phrase}
+            songBpm={config.songBpm}
+            name={config.name}
+            message={config.message}
+            reducedMotion={prefersReducedMotion()}
+            onPhaseChange={onPhaseChange}
+          />
         </div>
       )}
       {screen !== 'welcome' && (
