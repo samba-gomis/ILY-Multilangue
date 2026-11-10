@@ -1,0 +1,20 @@
+import { useEffect, useRef } from 'react'
+
+export function LoadingScreen({ onDone, durationMs = 2500 }: { onDone: () => void; durationMs?: number }) {
+  const done = useRef(onDone)
+  done.current = onDone
+
+  useEffect(() => {
+    const id = setTimeout(() => done.current(), durationMs)
+    return () => clearTimeout(id)
+  }, [durationMs])
+
+  return (
+    <main className="screen loading">
+      <div className="loading-heart" aria-hidden="true">
+        ❤
+      </div>
+      <p className="loading-text">Je cherche toutes les façons de te le dire… 💕</p>
+    </main>
+  )
+}
