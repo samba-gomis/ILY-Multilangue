@@ -1,8 +1,10 @@
 import { fitToBox, heartOutline, rowIntervals } from './heartShape'
 import type { Box, Point, Rect } from './types'
 
-export type Measure = (text: string, size: number) => number
-export type WordInput = { text: string; dir?: 'rtl'; highlight?: boolean }
+/** Largeur du texte ; `weight` = graisse de police (400 par défaut, 600 pour la phrase mise en valeur). */
+export type Measure = (text: string, size: number, weight?: number) => number
+/** `priority` : mot placé en premier, jamais abandonné faute de place (ex. le wolof). */
+export type WordInput = { text: string; dir?: 'rtl'; highlight?: boolean; priority?: boolean }
 /** x = bord gauche, y = ligne de base ; la boîte du mot va de y - size à y. */
 export type Placement = {
   text: string
@@ -28,7 +30,9 @@ const INSET = 0.15 // marge intérieure par rapport au bord du cœur
 const MIN_SCALE = 0.7 // réduction maximale d'un mot
 const LOOKAHEAD = 8 // nombre de mots essayés avant de fermer un intervalle
 const HIGHLIGHT_SCALE = 1.6 // la phrase saisie est plus grande
-const PORTRAIT_STRETCH = 1.25 // le cœur peut s'allonger un peu sur téléphone
+const PORTRAIT_STRETCH = 1.6 // le cœur peut s'allonger sur téléphone en portrait
+const HIGHLIGHT_WEIGHT = 600
+const HEART_FILL = 0.6 // part de la boîte englobante occupée par le cœur
 
 export function mulberry32(seed: number): () => number {
   let a = seed >>> 0
@@ -94,6 +98,7 @@ function fitSize(text: string, size: number, avail: number, measure: Measure): n
 function attempt(words: WordInput[], outline: Point[], zone: Rect, top: number, bottom: number, size: number, rng: () => number) {
   return (measure: Measure) => {
     const placements: Placement[] = []
+    const measureBold: Measure = (t, s) => measure(t, s, HIGHLIGHT_WEIGHT)
     const highlight = words.find((w) => w.highlight)
     const others = words.filter((w) => !w.highlight)
     const rows: number[] = []
@@ -108,9 +113,9 @@ function attempt(words: WordInput[], outline: Point[], zone: Rect, top: number, 
         for (const start of [size * HIGHLIGHT_SCALE, size]) {
           if (hlRect) break
           for (const [l, r] of freeIntervals(y - start, y, start, outline, zone)) {
-            const s = fitSize(highlight.text, start, r - l, measure)
+            const s = fitSize(highlight.text, start, r - l, measureBold)
             if (s === null) continue
-            const w = measure(highlight.text, s)
+            const w = measureBold(highlight.text, s)
             const cx = Math.min(Math.max(zone.x + zone.width / 2, l + w / 2), r - w / 2)
             placements.push({ text: highlight.text, x: cx - w / 2, y, size: s, dir: highlight.dir, highlight: true })
             hlRect = { x: cx - w / 2 - GAP * size, y: y - s, width: w + 2 * GAP * size, height: s }
@@ -121,7 +126,7 @@ function attempt(words: WordInput[], outline: Point[], zone: Rect, top: number, 
     }
 
     // 2. Les traductions, ligne par ligne, de gauche à droite ; la liste est recyclée.
-    let queue = shuffle(others, rng)
+    let queue = [...shuffle(others.filter((w) => w.priority), rng), ...shuffle(others.filter((w) => !w.priority), rng)]
     for (const y of rows) {
       let iv = freeIntervals(y - size, y, size, outline, zone)
       if (hlRect && y > hlRect.y && y - size < hlRect.y + hlRect.height)
@@ -159,14 +164,20 @@ export function layoutWords(words: WordInput[], box: Box, measure: Measure, seed
   const heartH = Math.max(...ys) - minY
   const center = { x: minX + heartW / 2, y: minY + heartH * 0.45 }
   const zw = heartW * 0.46
-  const zh = heartH * 0.16
+  const zh = Math.min(heartH, heartW) * 0.16
   const nameZone: Rect = { x: center.x - zw / 2, y: center.y - zh / 2, width: zw, height: zh }
   const unique = new Set(words.filter((w) => !w.highlight).map((w) => w.text)).size
+  if (!(heartW > 1 && heartH > 1)) return { placements: [], outline, center, nameZone, baseSize: 0 }
 
-  let baseSize = heartH / 22
+  // Taille de départ estimée : surface utile du cœur / surface d'un mot moyen. On part un peu
+  // au-dessus et on réduit jusqu'à placer 90 % des langues (et la phrase saisie).
+  const texts = [...new Set(words.filter((w) => !w.highlight).map((w) => w.text))]
+  const unitW = texts.reduce((sum, t) => sum + measure(t, 1), 0) / Math.max(1, texts.length) + GAP
+  const usable = HEART_FILL * heartW * heartH - zw * zh
+  let baseSize = 1.2 * Math.sqrt(usable / (Math.max(1, texts.length) * unitW * LINE))
   let result = { placements: [] as Placement[], highlightPlaced: false }
-  for (let tries = 0; tries < 8; tries++) {
-    if (tries > 0) baseSize *= 0.92
+  for (let tries = 0; tries < 14; tries++) {
+    if (tries > 0) baseSize *= 0.94
     result = attempt(words, outline, nameZone, minY, minY + heartH, baseSize, mulberry32(seed))(measure)
     const placedUnique = new Set(result.placements.filter((p) => !p.highlight).map((p) => p.text)).size
     if (placedUnique >= unique * 0.9 && result.highlightPlaced) break

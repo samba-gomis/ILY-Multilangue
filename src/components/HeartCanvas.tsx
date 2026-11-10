@@ -37,8 +37,8 @@ export function HeartCanvas({ phrase, songBpm, name, message, reducedMotion, onP
     if (!canvas || !ctx) return
 
     const words = allWords(phrase)
-    const measure: Measure = (text, size) => {
-      ctx.font = `${size}px ${FONT_STACK}`
+    const measure: Measure = (text, size, weight = 400) => {
+      ctx.font = `${weight} ${size}px ${FONT_STACK}`
       return ctx.measureText(text).width
     }
 
