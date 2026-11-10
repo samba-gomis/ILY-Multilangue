@@ -1,6 +1,6 @@
 import type { Placement } from './layout'
 import { mulberry32 } from './layout'
-import { createParticles, floatOffset, pulseScale, updateParticles } from './particles'
+import { createParticles, floatOffset, PARADE_GHOST_OPACITY, pulseScale, updateParticles } from './particles'
 
 const placements: Placement[] = [
   { text: 'Te amo', x: 100, y: 200, size: 12, highlight: false },
@@ -83,4 +83,27 @@ test('floatOffset reste sous 1,5 px', () => {
     const o = floatOffset(t, 2.1)
     expect(Math.hypot(o.x, o.y)).toBeLessThanOrEqual(1.5 + 1e-9)
   }
+})
+
+test('défilement : seules les traductions déjà passées apparaissent, en transparence', () => {
+  const ps = fresh()
+  updateParticles(ps, 'parade', 0.5, 16.67, false, new Set(['Te amo']))
+  expect(ps[0].opacity).toBeCloseTo(PARADE_GHOST_OPACITY, 5)
+  expect(ps[1].opacity).toBe(0)
+  expect(ps[2].opacity).toBe(0)
+})
+
+test('après le défilement, l’apparition part de l’opacité déjà atteinte', () => {
+  const ps = fresh()
+  updateParticles(ps, 'parade', 1, 16.67, false, new Set(['Te amo']))
+  updateParticles(ps, 'appear', 0.1, 16.67, false)
+  expect(ps[0].opacity).toBeCloseTo(PARADE_GHOST_OPACITY, 5)
+  expect(ps[1].opacity).toBeCloseTo(0.1, 5)
+})
+
+test('pendant le défilement, les mots ne bougent pas encore', () => {
+  const ps = fresh()
+  const before = ps.map((p) => [p.x, p.y])
+  updateParticles(ps, 'parade', 0.5, 16.67, false, new Set(['Te amo']))
+  expect(ps.map((p) => [p.x, p.y])).toEqual(before)
 })

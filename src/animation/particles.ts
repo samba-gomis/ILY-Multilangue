@@ -14,6 +14,8 @@ const LERP = 0.035 // par frame de 16,67 ms
 const FRAME_MS = 16.67
 const MAX_DT = 50 // évite les sauts après un retour sur l'onglet
 const PULSE = 0.045
+/** Opacité des traductions déjà passées pendant le défilement (en fond). */
+export const PARADE_GHOST_OPACITY = 0.3
 
 export function createParticles(placements: Placement[], viewport: Box, rng: () => number): TextParticle[] {
   return placements.map((p) => ({
@@ -33,10 +35,16 @@ export function updateParticles(
   progress: number,
   dtMs: number,
   reducedMotion: boolean,
+  /** Pendant le défilement : textes déjà affichés en gros. */
+  shown?: ReadonlySet<string>,
 ): void {
   const dt = Math.min(Math.max(dtMs, 0), MAX_DT)
   const k = 1 - (1 - LERP) ** (dt / FRAME_MS)
   for (const p of ps) {
+    if (phase === 'parade') {
+      p.opacity = shown?.has(p.text) ? PARADE_GHOST_OPACITY : 0
+      continue
+    }
     if (reducedMotion) {
       p.x = p.targetX
       p.y = p.targetY
@@ -44,7 +52,7 @@ export function updateParticles(
       p.x += (p.targetX - p.x) * k
       p.y += (p.targetY - p.y) * k
     }
-    p.opacity = phase === 'appear' ? Math.min(1, Math.max(0, progress)) : 1
+    p.opacity = phase === 'appear' ? Math.max(p.opacity, Math.min(1, Math.max(0, progress))) : 1
   }
 }
 
