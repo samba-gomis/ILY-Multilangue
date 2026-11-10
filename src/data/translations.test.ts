@@ -39,3 +39,17 @@ test('formes romantiques imposées', () => {
 test('le français est présent', () => {
   expect(translations.some((t) => t.lang === 'fr' && t.text === "Je t'aime")).toBe(true)
 })
+
+test('chaque traduction indique son pays (ou sa région)', () => {
+  for (const t of translations) expect(t.country.trim()).not.toBe('')
+})
+
+test('pays des langues clés', () => {
+  const country = (text: string) => translations.find((t) => t.text === text)?.country
+  expect(country("Je t'aime")).toBe('France')
+  expect(country('Damala beug')).toBe('Sénégal')
+  expect(country('Dama la nob')).toBe('Sénégal')
+  expect(country('愛してる')).toBe('Japon')
+  expect(country('I love you')).toBe('Royaume-Uni')
+  expect(country('Mi amas vin')).toBe('Langue internationale')
+})
