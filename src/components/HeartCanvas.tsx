@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { DISPLAY_FONT, FONT_STACK, waitForFonts } from '../animation/fonts'
 import { layoutWords, mulberry32, type Layout, type Measure } from '../animation/layout'
 import { createParticles, floatOffset, pulseScale, updateParticles, type TextParticle } from '../animation/particles'
-import { getPhase, type Phase } from '../animation/timeline'
+import { DURATIONS, getPhase, paradeSlot, type Phase } from '../animation/timeline'
 import { stageBox } from '../animation/stage'
-import { allWords } from '../animation/words'
+import { allWords, paradeOrder } from '../animation/words'
 
 type Props = {
   phrase: string
@@ -13,6 +13,8 @@ type Props = {
   message: string
   reducedMotion: boolean
   onPhaseChange: (p: Phase) => void
+  /** Durée d'affichage de chaque traduction pendant le défilement (0 = pas de défilement). */
+  paradeStepMs?: number
 }
 
 const MESSAGE_DELAY_MS = 3000
@@ -20,9 +22,19 @@ const RESIZE_DEBOUNCE_MS = 150
 const LAYOUT_SEED = 7
 const CREAM = '#fdeef4'
 const ROSE = '#ff6b9a'
-const PHASE_ORDER: Phase[] = ['appear', 'converge', 'final']
+const PHASE_ORDER: Phase[] = ['parade', 'appear', 'converge', 'final']
+const ANNOUNCED: Phase[] = ['converge', 'final'] // phases signalées à App (audio)
+const PARADE_STEP_MS = 500
 
-export function HeartCanvas({ phrase, songBpm, name, message, reducedMotion, onPhaseChange }: Props) {
+export function HeartCanvas({
+  phrase,
+  songBpm,
+  name,
+  message,
+  reducedMotion,
+  onPhaseChange,
+  paradeStepMs = PARADE_STEP_MS,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const messageRef = useRef<HTMLParagraphElement>(null)
   const [showMessage, setShowMessage] = useState(false)
@@ -37,6 +49,9 @@ export function HeartCanvas({ phrase, songBpm, name, message, reducedMotion, onP
     if (!canvas || !ctx) return
 
     const words = allWords(phrase)
+    const parade = paradeOrder()
+    const durations = { ...DURATIONS, parade: paradeStepMs * parade.length }
+    const shown = new Set<string>() // traductions déjà passées en gros
     const measure: Measure = (text, size, weight = 400) => {
       ctx.font = `${weight} ${size}px ${FONT_STACK}`
       return ctx.measureText(text).width
@@ -51,7 +66,7 @@ export function HeartCanvas({ phrase, songBpm, name, message, reducedMotion, onP
     let particles: TextParticle[] = []
     let startAt: number | null = null
     let lastAt: number | null = null
-    let lastPhase: Phase = 'appear'
+    let lastPhase: Phase = PHASE_ORDER[0]
     let messageShown = false
 
     const resize = () => {
@@ -108,6 +123,7 @@ export function HeartCanvas({ phrase, songBpm, name, message, reducedMotion, onP
       ctx.textAlign = 'left'
       ctx.textBaseline = 'alphabetic'
       for (const p of particles) {
+        if (p.opacity <= 0) continue
         const off = final && !reducedMotion ? floatOffset(now, p.phaseOffset) : { x: 0, y: 0 }
         ctx.font = `${p.highlight ? 600 : 400} ${p.size}px ${FONT_STACK}`
         ctx.direction = p.dir === 'rtl' ? 'rtl' : 'ltr'
@@ -120,8 +136,37 @@ export function HeartCanvas({ phrase, songBpm, name, message, reducedMotion, onP
       ctx.direction = 'ltr'
       ctx.shadowBlur = 0
 
-      const nameAlpha = phase === 'appear' ? 0 : phase === 'converge' ? progress : 1
+      const nameAlpha = phase === 'parade' || phase === 'appear' ? 0 : phase === 'converge' ? progress : 1
       if (nameAlpha > 0) drawName(layout, nameAlpha * (final ? alphaMul : 1))
+      ctx.restore()
+    }
+
+    /** Traduction en cours, en gros au centre, avec « Langue · Pays » en dessous. */
+    const drawParade = (index: number, local: number) => {
+      const t = parade[index]
+      const alpha = Math.min(1, local / 0.2, (1 - local) / 0.2)
+      let size = Math.min(width * 0.13, height * 0.12, 84)
+      ctx.font = `600 ${size}px ${FONT_STACK}`
+      const w = ctx.measureText(t.text).width
+      if (w > width * 0.88) size *= (width * 0.88) / w
+      const cx = width / 2
+      const cy = height * 0.45
+      ctx.save()
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'alphabetic'
+      ctx.direction = t.dir === 'rtl' ? 'rtl' : 'ltr'
+      ctx.globalAlpha = Math.max(0, alpha)
+      ctx.fillStyle = '#ffffff'
+      ctx.shadowColor = ROSE
+      ctx.shadowBlur = 24
+      ctx.font = `600 ${size}px ${FONT_STACK}`
+      ctx.fillText(t.text, cx, cy)
+      ctx.direction = 'ltr'
+      ctx.shadowBlur = 0
+      ctx.globalAlpha = Math.max(0, alpha) * 0.85
+      ctx.fillStyle = CREAM
+      ctx.font = `400 ${Math.max(15, size * 0.3)}px ${FONT_STACK}`
+      ctx.fillText(`${t.label} · ${t.country}`, cx, cy + Math.max(28, size * 0.75))
       ctx.restore()
     }
 
@@ -129,15 +174,20 @@ export function HeartCanvas({ phrase, songBpm, name, message, reducedMotion, onP
       if (startAt === null) startAt = now
       const dt = lastAt === null ? 16.67 : now - lastAt
       lastAt = now
-      const { phase, progress, phaseElapsed } = getPhase(now - startAt)
+      const { phase, progress, phaseElapsed } = getPhase(now - startAt, durations)
 
       // Annonce chaque phase une fois, sans en sauter (frame tardive après un onglet en arrière-plan).
       for (let i = PHASE_ORDER.indexOf(lastPhase) + 1; i <= PHASE_ORDER.indexOf(phase); i++)
-        phaseCb.current(PHASE_ORDER[i])
+        if (ANNOUNCED.includes(PHASE_ORDER[i])) phaseCb.current(PHASE_ORDER[i])
       lastPhase = phase
 
-      updateParticles(particles, phase, progress, dt, reducedMotion)
+      const slot = phase === 'parade' ? paradeSlot(phaseElapsed, paradeStepMs, parade.length) : null
+      const passed = slot ? slot.index : parade.length
+      for (let i = shown.size; i < passed; i++) shown.add(parade[i].text)
+
+      updateParticles(particles, phase, progress, dt, reducedMotion, shown)
       draw(phase, progress, phaseElapsed, now)
+      if (slot) drawParade(slot.index, slot.local)
 
       if (phase === 'final' && phaseElapsed >= MESSAGE_DELAY_MS && !messageShown) {
         messageShown = true
@@ -164,7 +214,7 @@ export function HeartCanvas({ phrase, songBpm, name, message, reducedMotion, onP
       clearTimeout(resizeTimer)
       window.removeEventListener('resize', onResize)
     }
-  }, [phrase, songBpm, name, reducedMotion])
+  }, [phrase, songBpm, name, reducedMotion, paradeStepMs])
 
   return (
     <>
