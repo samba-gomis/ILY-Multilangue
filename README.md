@@ -15,11 +15,21 @@ npm run build    # génère dist/
 
 ## Personnaliser
 
-1. Copier `src/config/config.example.ts` en `src/config/config.local.ts`, puis y mettre le prénom, le message, le BPM de la chanson et la seconde de départ.
-2. Déposer la chanson dans `public/music/chanson.mp3`.
+**En ligne (Netlify)** : dans *Site configuration → Environment variables*, définir :
 
-Ces deux fichiers sont dans le `.gitignore` : ils ne partent jamais sur GitHub. Sans eux, le site utilise les valeurs d'exemple et un battement de cœur synthétisé.
+| Variable | Exemple |
+|---|---|
+| `VITE_LOVE_NAME` | `Diarra Gomis` |
+| `VITE_LOVE_MESSAGE` | `Première ligne
+Deuxième ligne` (`
+` = retour à la ligne) |
+| `VITE_SONG_BPM` | `130.5` |
+| `VITE_SONG_START_SEC` | `64` |
+
+Puis relancer un déploiement. La chanson est attendue dans `public/music/chanson.mp3` (sans elle, seul le battement synthétisé joue).
+
+**En local** : copier `src/config/config.example.ts` en `src/config/config.local.ts` (ignoré par git) ; ce fichier est prioritaire sur les variables.
 
 ## Déployer
 
-`npm run build`, puis glisser le dossier `dist/` sur Netlify (dépôt manuel).
+Voir `netlify.toml` (build `npm run build`, publication de `dist/`).
