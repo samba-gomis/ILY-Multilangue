@@ -54,6 +54,7 @@ export default function App() {
       }
     }
     audio.current.music = createMusic(config.songUrl, config.songStartSec)
+    audio.current.music.unlock() // dans le geste : sinon iOS refusera la lecture 6 s plus tard
     audio.current.music.setMuted(muted)
     setScreen('loading')
   }

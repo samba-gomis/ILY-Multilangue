@@ -1,4 +1,6 @@
 export type Music = {
+  /** À appeler dans le gestionnaire du clic : iOS n'autorise ensuite play() que sur un élément déjà amorcé. */
+  unlock(): void
   play(fadeMs: number): Promise<void>
   setMuted(m: boolean): void
   stop(): void
@@ -13,6 +15,9 @@ export function createMusic(url: string, startSec: number, AudioCtor: typeof Aud
   el.loop = true
   el.preload = 'auto'
   let failed = false
+  let muted = false
+  let priming = false
+  let started = false
   let fade: ReturnType<typeof setInterval> | null = null
   el.addEventListener?.('error', () => {
     failed = true
@@ -24,7 +29,27 @@ export function createMusic(url: string, startSec: number, AudioCtor: typeof Aud
   }
 
   return {
+    unlock() {
+      priming = true
+      el.muted = true
+      const done = () => {
+        priming = false
+        el.muted = muted
+      }
+      try {
+        void el
+          .play()
+          .then(() => {
+            if (!started) el.pause()
+          })
+          .catch(() => {})
+          .finally(done)
+      } catch {
+        done()
+      }
+    },
     async play(fadeMs) {
+      started = true
       clearFade()
       try {
         el.currentTime = startSec
@@ -41,7 +66,8 @@ export function createMusic(url: string, startSec: number, AudioCtor: typeof Aud
       }, FADE_STEP_MS)
     },
     setMuted(m) {
-      el.muted = m
+      muted = m
+      if (!priming) el.muted = m
     },
     stop() {
       clearFade()

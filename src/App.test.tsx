@@ -3,7 +3,7 @@ import App from './App'
 
 const mocks = vi.hoisted(() => {
   const heartbeat = { start: vi.fn(), setBpm: vi.fn(), fadeOut: vi.fn(), stop: vi.fn(), setMuted: vi.fn() }
-  const music = { play: vi.fn(() => Promise.resolve()), setMuted: vi.fn(), stop: vi.fn(), failed: false }
+  const music = { play: vi.fn(() => Promise.resolve()), unlock: vi.fn(), setMuted: vi.fn(), stop: vi.fn(), failed: false }
   return {
     heartbeat,
     music,
@@ -109,4 +109,10 @@ test('si la chanson échoue, le battement continue', async () => {
   await act(async () => {})
   expect(mocks.heartbeat.fadeOut).not.toHaveBeenCalled()
   mocks.music.failed = false
+})
+
+test('la chanson est amorcée dans le geste du clic (iOS)', () => {
+  render(<App />)
+  fireEvent.click(submit())
+  expect(mocks.music.unlock).toHaveBeenCalledTimes(1)
 })

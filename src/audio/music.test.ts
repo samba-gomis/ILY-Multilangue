@@ -25,6 +25,9 @@ class FakeAudio {
 }
 
 const Ctor = FakeAudio as unknown as typeof Audio
+const flush = async () => {
+  for (let i = 0; i < 6; i++) await Promise.resolve()
+}
 const last = () => FakeAudio.instances[FakeAudio.instances.length - 1]
 
 beforeEach(() => {
@@ -69,4 +72,31 @@ test('stop met en pause et arrête le fondu', async () => {
   vi.advanceTimersByTime(3000)
   expect(last().pause).toHaveBeenCalled()
   expect(last().volume).toBe(v)
+})
+
+test('unlock() amorce l’élément pendant le geste : play puis pause, en silence', async () => {
+  const music = createMusic('/music/chanson.mp3', 0, Ctor)
+  music.unlock()
+  const el = last()
+  expect(el.play).toHaveBeenCalledTimes(1)
+  expect(el.muted).toBe(true) // silencieux pendant l'amorçage
+  await flush()
+  expect(el.pause).toHaveBeenCalled()
+  expect(el.muted).toBe(false)
+})
+
+test('unlock() respecte le mute choisi entre-temps', async () => {
+  const music = createMusic('/music/chanson.mp3', 0, Ctor)
+  music.unlock()
+  music.setMuted(true)
+  await flush()
+  expect(last().muted).toBe(true)
+})
+
+test('unlock() ne propage pas un refus', async () => {
+  FakeAudio.failNext = true
+  const music = createMusic('/music/chanson.mp3', 0, Ctor)
+  expect(() => music.unlock()).not.toThrow()
+  await flush()
+  expect(music.failed).toBe(false) // seul play() décide de l'échec
 })
